@@ -171,7 +171,7 @@
           response = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId:
               '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk01a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0',
-            range: 'Class Data!A2:E',
+            range: 'Class Data!A2:A23,B2:B23',
           });
         } catch (err) {
           document.getElementById('content').innerText = err.message;
