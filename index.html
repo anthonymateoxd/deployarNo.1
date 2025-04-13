@@ -169,16 +169,17 @@
         let response;
         try {
           response = await gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId:
-              '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk01a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0',
-            range: 'Class Data!A2:A23,B2:B23',
+            spreadsheetId: '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0',
+            range: 'Datos!A:C',
           });
         } catch (err) {
+          console.error(error);
           document.getElementById('content').innerText = err.message;
           return;
         }
         const range = response.result;
         if (!range || !range.values || range.values.length == 0) {
+          console.warn('No hay datos disponibles');
           document.getElementById('content').innerText = 'No values found.';
           return;
         }
