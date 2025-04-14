@@ -47,8 +47,6 @@ function actualizarDetalle(index) {
   );
 }
 
-finalizar.addEventListener('click', () => marcarTerminado(indiceSeleccionado));
-
 async function marcarTerminado(i) {
   const updateTurno = turnos[i];
   updateTurno.comentario = comentarioElement.value;
