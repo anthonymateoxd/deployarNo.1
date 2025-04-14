@@ -173,7 +173,7 @@
             range: 'Datos!A:C',
           });
         } catch (err) {
-          console.error(error);
+          console.error(err);
           document.getElementById('content').innerText = err.message;
           return;
         }
@@ -183,11 +183,29 @@
           document.getElementById('content').innerText = 'No values found.';
           return;
         }
-        // Flatten to string to display
-        const output = range.values.reduce(
-          (str, row) => `${str}${row[0]}, ${row[4]}\n`,
-          'Name, Major:\n'
-        );
+
+        // Crear encabezados
+        let output = 'Full Name | Email | Tipo de Persona\n';
+        output += '------------------------------------\n';
+
+        // Procesar cada fila
+        range.values.forEach((row, index) => {
+          // Saltar la primera fila si son encabezados
+          if (
+            index === 0 &&
+            (row[0] === 'Full name' || row[0] === 'Full Name')
+          ) {
+            return;
+          }
+
+          // Asegurarse de que hay datos en las 3 columnas
+          const fullName = row[0] || '';
+          const email = row[1] || '';
+          const tipoPersona = row[2] || '';
+
+          output += `${fullName} | ${email} | ${tipoPersona}\n`;
+        });
+
         document.getElementById('content').innerText = output;
       }
     </script>
