@@ -342,128 +342,98 @@ function scanQRCode(video) {
       });
 
       if (code) {
-        // Extraer el código del QR (última parte de la URL)
         const qrData = code.data;
         let youtubeUrl = qrData;
         let extractedCode = '';
 
-        // Verificar si es un QR generado con tu formato
         if (qrData.includes('youtube.com/?data=')) {
           const urlParts = qrData.split('data=');
-          youtubeUrl = urlParts[0].replace('?data=', ''); // URL base de YouTube
-          extractedCode = urlParts[1]; // Código después de data=
+          youtubeUrl = urlParts[0].replace('?data=', '');
+          extractedCode = urlParts[1];
         }
 
-        // Verificar en Google Sheets
-        const sheetValue = await checkSpreadsheet();
-        qrResult.innerHTML = `Código QR escaneado: <strong>${
+        // 1. Mostrar mensaje de escaneo
+        qrResult.innerHTML = `Código escaneado: <strong>${
           extractedCode || qrData
         }</strong>`;
 
-        if (
-          sheetValue &&
-          (extractedCode === sheetValue || qrData === sheetValue)
-        ) {
-          qrResult.innerHTML +=
-            '<br><span style="color:green; font-weight:bold;">✔ Código EXISTE en el sistema</span>';
+        // 2. Buscar en Google Sheets
+        const sheetValue = await checkSpreadsheet(extractedCode || qrData);
 
-          // Redirigir después de 2 segundos (opcional)
+        // 3. Mostrar resultado de búsqueda
+        if (sheetValue && sheetValue.found) {
+          qrResult.innerHTML += `
+            <br><br>
+            <div style="
+              background: #4CAF50;
+              color: white;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 10px 0;
+            ">
+              ✔ Registro encontrado
+            </div>
+          `;
+
+          // Redirigir después de 3 segundos (opcional)
           setTimeout(() => {
             window.location.href = youtubeUrl;
-          }, 2000);
+          }, 3000);
         } else {
-          qrResult.innerHTML +=
-            '<br><span style="color:red; font-weight:bold;">✖ Código NO existe en el sistema</span>';
+          qrResult.innerHTML += `
+            <br><br>
+            <div style="
+              background: #F44336;
+              color: white;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 10px 0;
+            ">
+              ✖ Código no registrado
+            </div>
+          `;
 
-          // Redirigir solo si es URL de YouTube (opcional)
+          // Redirigir solo si es YouTube (sin espera)
           if (isYouTubeUrl(youtubeUrl)) {
-            qrResult.innerHTML += `<br><small>Redirigiendo a YouTube en 3 segundos...</small>`;
             setTimeout(() => {
               window.location.href = youtubeUrl;
-            }, 3000);
+            }, 1500);
           }
         }
 
         stopScanner();
       }
     }
-
     requestAnimationFrame(tick);
   }
-
   tick();
 }
 
-// Función para verificar y mostrar datos de Google Sheets
+// Función de búsqueda optimizada
 async function checkSpreadsheet(qrCode) {
   try {
-    // Extraer solo los números del código QR (elimina todo lo que no sea dígito)
     const extractedNumber = qrCode.replace(/\D/g, '');
-
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Datos1!A2:G', // Lee desde A2 hasta G (todas las filas)
+      range: 'Datos1!G2:G', // Solo columna G desde fila 2
     });
 
     const values = response.result.values;
-    const qrResult = document.getElementById('qr-result');
+    if (!values) return { found: false };
 
-    if (!values || values.length === 0) {
-      qrResult.innerHTML += '<br>No hay datos en la hoja de cálculo';
-      return null;
-    }
-
-    // Buscar en la columna G (índice 6)
-    for (const row of values) {
-      if (row[6] && row[6].replace(/\D/g, '') === extractedNumber) {
-        // Mostrar los datos encontrados en una tabla
-        qrResult.innerHTML += `
-          <br><br><strong>REGISTRO ENCONTRADO:</strong>
-          <table border="1" style="width:100%;margin-top:10px;border-collapse:collapse;">
-            <tr>
-              <th style="padding:8px;background:#3498db;color:white;">Fecha</th>
-              <th style="padding:8px;background:#3498db;color:white;">Nombre</th>
-              <th style="padding:8px;background:#3498db;color:white;">Email</th>
-              <th style="padding:8px;background:#3498db;color:white;">Tipo</th>
-              <th style="padding:8px;background:#3498db;color:white;">Código</th>
-            </tr>
-            <tr>
-              <td style="padding:8px;border:1px solid #ddd;">${
-                row[0] || ''
-              }</td>
-              <td style="padding:8px;border:1px solid #ddd;">${
-                row[1] || ''
-              }</td>
-              <td style="padding:8px;border:1px solid #ddd;">${
-                row[2] || ''
-              }</td>
-              <td style="padding:8px;border:1px solid #ddd;">${
-                row[3] || ''
-              }</td>
-              <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${
-                row[6] || ''
-              }</td>
-            </tr>
-          </table>
-        `;
-
-        return {
-          found: true,
-          data: row,
-        };
+    // Buscar en la columna G (ahora simplificado)
+    for (const [cellValue] of values) {
+      if (cellValue && cellValue.replace(/\D/g, '') === extractedNumber) {
+        return { found: true };
       }
     }
-
-    qrResult.innerHTML +=
-      '<br><span style="color:red;font-weight:bold;">✖ Código no encontrado en registros</span>';
     return { found: false };
   } catch (err) {
-    console.error('Error al leer la hoja:', err);
-    document.getElementById('qr-result').innerHTML +=
-      '<br>Error al buscar: ' + err.message;
+    console.error('Error al buscar:', err);
     return null;
   }
 }
+
 // Función para verificar URL de YouTube (sin cambios)
 function isYouTubeUrl(url) {
   try {
