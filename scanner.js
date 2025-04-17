@@ -397,64 +397,73 @@ function scanQRCode(video) {
 // Función para verificar y mostrar datos de Google Sheets
 async function checkSpreadsheet(qrCode) {
   try {
+    // Extraer solo los números del código QR (elimina todo lo que no sea dígito)
+    const extractedNumber = qrCode.replace(/\D/g, '');
+
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: RANGE,
+      range: 'Datos1!A2:G', // Lee desde A2 hasta G (todas las filas)
     });
 
     const values = response.result.values;
     const qrResult = document.getElementById('qr-result');
 
     if (!values || values.length === 0) {
-      console.log('No se encontraron datos en la hoja.');
       qrResult.innerHTML += '<br>No hay datos en la hoja de cálculo';
       return null;
     }
 
-    // Mostrar todos los datos primero (para propósitos de visualización)
-    qrResult.innerHTML += '<br><br><strong>Datos en la hoja:</strong><br>';
-    qrResult.innerHTML += '<table border="1"><tr>';
+    // Buscar en la columna G (índice 6)
+    for (const row of values) {
+      if (row[6] && row[6].replace(/\D/g, '') === extractedNumber) {
+        // Mostrar los datos encontrados en una tabla
+        qrResult.innerHTML += `
+          <br><br><strong>REGISTRO ENCONTRADO:</strong>
+          <table border="1" style="width:100%;margin-top:10px;border-collapse:collapse;">
+            <tr>
+              <th style="padding:8px;background:#3498db;color:white;">Fecha</th>
+              <th style="padding:8px;background:#3498db;color:white;">Nombre</th>
+              <th style="padding:8px;background:#3498db;color:white;">Email</th>
+              <th style="padding:8px;background:#3498db;color:white;">Tipo</th>
+              <th style="padding:8px;background:#3498db;color:white;">Código</th>
+            </tr>
+            <tr>
+              <td style="padding:8px;border:1px solid #ddd;">${
+                row[0] || ''
+              }</td>
+              <td style="padding:8px;border:1px solid #ddd;">${
+                row[1] || ''
+              }</td>
+              <td style="padding:8px;border:1px solid #ddd;">${
+                row[2] || ''
+              }</td>
+              <td style="padding:8px;border:1px solid #ddd;">${
+                row[3] || ''
+              }</td>
+              <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${
+                row[6] || ''
+              }</td>
+            </tr>
+          </table>
+        `;
 
-    // Encabezados (asumiendo que la primera fila tiene los títulos)
-    const headers = values[0];
-    headers.forEach(header => {
-      qrResult.innerHTML += `<th>${header}</th>`;
-    });
-    qrResult.innerHTML += '</tr>';
-
-    // Filas de datos
-    for (let i = 1; i < values.length; i++) {
-      qrResult.innerHTML += '<tr>';
-      values[i].forEach(cell => {
-        qrResult.innerHTML += `<td>${cell}</td>`;
-      });
-      qrResult.innerHTML += '</tr>';
-    }
-    qrResult.innerHTML += '</table>';
-
-    // Buscar el código QR específico (si se proporciona)
-    if (qrCode) {
-      for (const row of values) {
-        if (row[6] === qrCode) {
-          // Asumiendo columna G (índice 6)
-          return {
-            found: true,
-            data: row,
-          };
-        }
+        return {
+          found: true,
+          data: row,
+        };
       }
-      return { found: false };
     }
 
-    return values; // Devuelve todos los datos si no se busca un código específico
+    qrResult.innerHTML +=
+      '<br><span style="color:red;font-weight:bold;">✖ Código no encontrado en registros</span>';
+    return { found: false };
   } catch (err) {
-    console.error('Error al leer la hoja de cálculo:', err);
+    console.error('Error al leer la hoja:', err);
     document.getElementById('qr-result').innerHTML +=
-      '<br>Error al acceder a los datos: ' + err.message;
+      '<br>Error al buscar: ' + err.message;
     return null;
   }
 }
-
 // Función para verificar URL de YouTube (sin cambios)
 function isYouTubeUrl(url) {
   try {
