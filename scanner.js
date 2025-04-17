@@ -360,40 +360,66 @@ function scanQRCode(video) {
         // Buscar en Google Sheets
         const searchResult = await checkSpreadsheet(extractedCode);
 
-        // Mostrar resultado
+        // Mostrar resultado con estilos mejorados
         if (searchResult && searchResult.found) {
           qrResult.innerHTML += `
             <div style="
               background: #4CAF50;
               color: white;
-              padding: 10px;
+              padding: 15px;
               border-radius: 5px;
-              margin: 10px 0;
+              margin: 15px 0;
               font-weight: bold;
+              font-size: 1.1em;
+              text-align: center;
             ">
               ✔ El código existe en el sistema
             </div>
           `;
+
+          // Redirigir solo si es URL de YouTube y el código existe
+          if (isYoutubeUrl) {
+            qrResult.innerHTML += `
+              <div style="
+                background: #2196F3;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+                text-align: center;
+              ">
+                Redirigiendo en 3 segundos...
+              </div>
+            `;
+            setTimeout(() => {
+              window.location.href = qrData; // Usar la URL original del QR
+            }, 3000);
+          }
         } else {
           qrResult.innerHTML += `
             <div style="
               background: #f44336;
               color: white;
-              padding: 10px;
+              padding: 15px;
               border-radius: 5px;
-              margin: 10px 0;
+              margin: 15px 0;
               font-weight: bold;
+              font-size: 1.1em;
+              text-align: center;
             ">
               ✖ El código NO existe en el sistema
             </div>
+            <div style="
+              background: #ffeb3b;
+              color: #000;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 10px 0;
+              text-align: center;
+            ">
+              No se realizará ninguna redirección
+            </div>
           `;
-        }
-
-        // Redirigir solo si es URL de YouTube y el código existe
-        if (isYoutubeUrl && searchResult && searchResult.found) {
-          setTimeout(() => {
-            window.location.href = `https://www.youtube.com/`;
-          }, 3000);
         }
 
         stopScanner();
