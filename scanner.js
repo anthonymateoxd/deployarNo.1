@@ -4,7 +4,7 @@ const CLIENT_ID =
 const API_KEY = 'AIzaSyDz4X52nWMUsWbjO-eyTFx6rNAg82pTb_A';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const SPREADSHEET_ID = '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0';
-const RANGE = 'Datos1!G2';
+const RANGE = 'Datos1!A2:G100';
 
 // Variables para el escáner QR
 let scannerActive = false;
@@ -219,21 +219,39 @@ function scanQRCode(video) {
   tick();
 }
 
-// Función para verificar en Google Sheets (sin cambios)
-async function checkSpreadsheet() {
+// Modifica la función checkSpreadsheet para manejar múltiples valores
+async function checkSpreadsheet(qrCode) {
   try {
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: RANGE,
     });
 
-    return response.result.values ? response.result.values[0][0] : null;
+    const values = response.result.values;
+
+    if (!values || values.length === 0) {
+      console.log('No se encontraron datos en la hoja.');
+      return null;
+    }
+
+    // Buscar el código QR en todas las filas
+    for (const row of values) {
+      if (row[6] === qrCode) {
+        // Asumiendo que el código está en la columna G (índice 6)
+        // Devuelve toda la fila encontrada
+        return {
+          found: true,
+          data: row,
+        };
+      }
+    }
+
+    return { found: false };
   } catch (err) {
     console.error('Error al leer la hoja de cálculo:', err);
     return null;
   }
 }
-
 // Función para verificar URL de YouTube (sin cambios)
 function isYouTubeUrl(url) {
   try {
