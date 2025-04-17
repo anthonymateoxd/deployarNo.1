@@ -387,7 +387,6 @@ function scanQRCode(video) {
         const qrData = code.data;
         let extractedCode = '';
 
-        // Extraer código (ya no necesitamos la variable isYoutubeUrl)
         if (qrData.includes('youtube.com/?data=')) {
           const urlParts = qrData.split('data=');
           extractedCode = urlParts[1];
@@ -402,47 +401,68 @@ function scanQRCode(video) {
 
         // Mostrar resultados
         if (searchResult && searchResult.found) {
-          showAlertBox('EL CÓDIGO EXISTE', true);
-          qrResult.innerHTML += `
-            <div style="
-              background: #4CAF50;
-              color: white;
-              padding: 15px;
-              border-radius: 5px;
-              margin: 15px 0;
-              font-weight: bold;
-              font-size: 1.1em;
-              text-align: center;
-            ">
-              ✔ El código existe en el sistema
-            </div>
-            <div style="
-              background: #2196F3;
-              color: white;
-              padding: 10px;
-              border-radius: 5px;
-              margin: 10px 0;
-              text-align: center;
-            ">
-              Modo verificación: No se ha realizado redirección
-            </div>
-          `;
+          // Eliminar el código validado
+          const deletionSuccess = await deleteValidatedRow(searchResult.row);
+
+          if (deletionSuccess) {
+            showAlertBox('CÓDIGO VALIDADO Y ELIMINADO', true);
+            qrResult.innerHTML += `
+          <div style="
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-align: center;
+          ">
+            ✔ Código validado y eliminado del sistema
+          </div>
+          <div style="
+            background: #2196F3;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+          ">
+            Este código no podrá ser usado nuevamente
+          </div>
+        `;
+          } else {
+            showAlertBox('CÓDIGO VALIDADO PERO NO ELIMINADO', false);
+            qrResult.innerHTML += `
+          <div style="
+            background: #FF9800;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-align: center;
+          ">
+            ✔ Código existe pero no se pudo eliminar (error del sistema)
+          </div>
+        `;
+          }
         } else {
           showAlertBox('EL CÓDIGO NO EXISTE', false);
           qrResult.innerHTML += `
-            <div style="
-              background: #f44336;
-              color: white;
-              padding: 15px;
-              border-radius: 5px;
-              margin: 15px 0;
-              font-weight: bold;
-              font-size: 1.1em;
-              text-align: center;
-            ">
-              ✖ El código NO existe en el sistema
-            </div>
-          `;
+        <div style="
+          background: #f44336;
+          color: white;
+          padding: 15px;
+          border-radius: 5px;
+          margin: 15px 0;
+          font-weight: bold;
+          font-size: 1.1em;
+          text-align: center;
+        ">
+          ✖ El código NO existe en el sistema
+        </div>
+      `;
         }
 
         stopScanner();
@@ -452,27 +472,58 @@ function scanQRCode(video) {
   }
   tick();
 }
-// Función optimizada de búsqueda
+// Primero, actualizamos la función checkSpreadsheet para que pueda eliminar el registro
 async function checkSpreadsheet(qrCode) {
   try {
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Datos1!G2:G', // Solo columna G desde fila 2
+      range: 'Datos1!G2:G', // Buscamos en la columna G desde fila 2
     });
 
     const values = response.result.values;
     if (!values) return { found: false };
 
     // Buscar el código exacto en la columna G
-    for (const [cellValue] of values) {
-      if (cellValue && cellValue.trim() === qrCode.trim()) {
-        return { found: true };
+    for (let i = 0; i < values.length; i++) {
+      if (values[i][0] && values[i][0].trim() === qrCode.trim()) {
+        // Si encontramos el código, devolvemos la posición para borrarlo
+        return {
+          found: true,
+          row: i + 2, // +2 porque empezamos en G2 (fila 2)
+        };
       }
     }
     return { found: false };
   } catch (err) {
     console.error('Error al buscar:', err);
     return null;
+  }
+}
+
+// Función para borrar la fila del código validado
+async function deleteValidatedRow(rowNumber) {
+  try {
+    await gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      resource: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: 0, // Asume que es la primera hoja
+                dimension: 'ROWS',
+                startIndex: rowNumber - 1, // Sheets API usa base 0
+                endIndex: rowNumber,
+              },
+            },
+          },
+        ],
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error('Error al borrar fila:', err);
+    return false;
   }
 }
 
