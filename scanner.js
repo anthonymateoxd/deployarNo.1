@@ -328,6 +328,63 @@ function scanQRCode(video) {
   const context = canvas.getContext('2d');
   const qrResult = document.getElementById('qr-result');
 
+  // Función para mostrar cuadro emergente
+  function showAlertBox(message, isSuccess) {
+    const alertBox = document.createElement('div');
+    alertBox.style.position = 'fixed';
+    alertBox.style.top = '20px';
+    alertBox.style.left = '50%';
+    alertBox.style.transform = 'translateX(-50%)';
+    alertBox.style.padding = '20px';
+    alertBox.style.borderRadius = '8px';
+    alertBox.style.color = 'white';
+    alertBox.style.fontWeight = 'bold';
+    alertBox.style.fontSize = '18px';
+    alertBox.style.zIndex = '1000';
+    alertBox.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+    alertBox.style.textAlign = 'center';
+    alertBox.style.minWidth = '300px';
+    alertBox.style.animation = 'fadeIn 0.5s';
+
+    if (isSuccess) {
+      alertBox.style.backgroundColor = '#4CAF50'; // Verde para éxito
+      alertBox.innerHTML = `
+        <div style="font-size: 24px; margin-bottom: 10px;">✓</div>
+        <div>${message}</div>
+      `;
+    } else {
+      alertBox.style.backgroundColor = '#f44336'; // Rojo para error
+      alertBox.innerHTML = `
+        <div style="font-size: 24px; margin-bottom: 10px;">✗</div>
+        <div>${message}</div>
+      `;
+    }
+
+    document.body.appendChild(alertBox);
+
+    // Desaparecer después de 3 segundos
+    setTimeout(() => {
+      alertBox.style.animation = 'fadeOut 0.5s';
+      setTimeout(() => {
+        document.body.removeChild(alertBox);
+      }, 500);
+    }, 3000);
+  }
+
+  // Añadir estilos de animación
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; top: 0; }
+      to { opacity: 1; top: 20px; }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; top: 20px; }
+      to { opacity: 0; top: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+
   async function tick() {
     if (!scannerActive) return;
 
@@ -360,8 +417,9 @@ function scanQRCode(video) {
         // Buscar en Google Sheets
         const searchResult = await checkSpreadsheet(extractedCode);
 
-        // Mostrar resultado con estilos mejorados
+        // Mostrar resultado en página y como cuadro emergente
         if (searchResult && searchResult.found) {
+          showAlertBox('EL CÓDIGO EXISTE', true);
           qrResult.innerHTML += `
             <div style="
               background: #4CAF50;
@@ -392,10 +450,11 @@ function scanQRCode(video) {
               </div>
             `;
             setTimeout(() => {
-              window.location.href = qrData; // Usar la URL original del QR
+              window.location.href = qrData;
             }, 3000);
           }
         } else {
+          showAlertBox('EL CÓDIGO NO EXISTE', false);
           qrResult.innerHTML += `
             <div style="
               background: #f44336;
@@ -429,7 +488,6 @@ function scanQRCode(video) {
   }
   tick();
 }
-
 // Función optimizada de búsqueda
 async function checkSpreadsheet(qrCode) {
   try {
