@@ -1,3 +1,4 @@
+<!-- 
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -57,7 +58,6 @@
   <body>
     <h1>Lector QR con Autenticación</h1>
 
-    <!-- Sección de autenticación -->
     <div>
       <button id="authorize_button">Authorize</button>
       <button
@@ -74,7 +74,6 @@
       </div>
     </div>
 
-    <!-- Controles del escáner QR -->
     <div>
       <button
         id="start-scanner"
@@ -105,7 +104,6 @@
       ></div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
     <script>
@@ -328,5 +326,74 @@
         }
       }
     </script>
+</html> 
+-->
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Lector QR con Autenticación</title>
+    <link
+      rel="stylesheet"
+      href="scanner.css"
+    />
+  </head>
+  <body>
+    <h1>Lector QR con Autenticación</h1>
+
+    <div>
+      <button id="authorize_button">Authorize</button>
+      <button
+        id="signout_button"
+        style="display: none"
+      >
+        Sign Out
+      </button>
+      <div
+        id="auth-status"
+        class="not-authenticated"
+      >
+        No autenticado
+      </div>
+    </div>
+
+    <div>
+      <button
+        id="start-scanner"
+        class="disabled"
+        disabled
+      >
+        Iniciar Escáner QR
+      </button>
+    </div>
+
+    <div
+      id="qr-scanner-container"
+      style="display: none"
+    >
+      <video
+        id="qr-video"
+        playsinline
+      ></video>
+      <button
+        id="stop-scanner"
+        style="margin-top: 10px"
+      >
+        Detener Escáner
+      </button>
+      <div
+        id="qr-result"
+        style="margin-top: 10px"
+      ></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="scanner.js"></script>
   </body>
 </html>
