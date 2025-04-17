@@ -37,6 +37,10 @@
         border-radius: 4px;
         margin-top: 10px;
       }
+      .disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -60,7 +64,12 @@
 
     <!-- Controles del escáner QR -->
     <div>
-      <button id="start-scanner">Iniciar Escáner QR</button>
+      <button
+        id="start-scanner"
+        disabled
+      >
+        Iniciar Escáner QR
+      </button>
     </div>
 
     <div
@@ -112,11 +121,16 @@
       document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('authorize_button').style.visibility = 'hidden';
         document.getElementById('signout_button').style.visibility = 'hidden';
+        document.getElementById('start-scanner').classList.add('disabled');
 
         // Configurar listeners para el escáner QR
         document
           .getElementById('start-scanner')
-          .addEventListener('click', startScanner);
+          .addEventListener('click', function () {
+            if (!this.disabled) {
+              startScanner();
+            }
+          });
         document
           .getElementById('stop-scanner')
           .addEventListener('click', stopScanner);
@@ -161,6 +175,8 @@
           document.getElementById('signout_button').style.visibility =
             'visible';
           document.getElementById('authorize_button').innerText = 'Refresh';
+          document.getElementById('start-scanner').disabled = false;
+          document.getElementById('start-scanner').classList.remove('disabled');
           await listMajors();
         };
 
@@ -179,6 +195,9 @@
           document.getElementById('content').innerText = '';
           document.getElementById('authorize_button').innerText = 'Authorize';
           document.getElementById('signout_button').style.visibility = 'hidden';
+          document.getElementById('start-scanner').disabled = true;
+          document.getElementById('start-scanner').classList.add('disabled');
+          stopScanner();
         }
       }
 
@@ -223,6 +242,11 @@
 
       // Funciones del escáner QR
       function startScanner() {
+        if (!gapi.client.getToken()) {
+          alert('Por favor, autoriza primero la aplicación antes de escanear.');
+          return;
+        }
+
         const scannerContainer = document.getElementById(
           'qr-scanner-container'
         );
@@ -268,12 +292,6 @@
       }
 
       async function searchInSheets(qrContent) {
-        if (!gapi.client.getToken()) {
-          document.getElementById('qr-result').innerHTML +=
-            '<br>Debes autenticarte primero';
-          return;
-        }
-
         try {
           const response = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0',
