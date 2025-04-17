@@ -343,62 +343,57 @@ function scanQRCode(video) {
 
       if (code) {
         const qrData = code.data;
-        let youtubeUrl = qrData;
         let extractedCode = '';
+        let isYoutubeUrl = false;
 
+        // Extraer código si es QR de YouTube
         if (qrData.includes('youtube.com/?data=')) {
           const urlParts = qrData.split('data=');
-          youtubeUrl = urlParts[0].replace('?data=', '');
           extractedCode = urlParts[1];
+          isYoutubeUrl = true;
+        } else {
+          extractedCode = qrData; // Si es un código directo
         }
 
-        // 1. Mostrar mensaje de escaneo
-        qrResult.innerHTML = `Código escaneado: <strong>${
-          extractedCode || qrData
-        }</strong>`;
+        qrResult.innerHTML = `Código escaneado: <strong>${extractedCode}</strong>`;
 
-        // 2. Buscar en Google Sheets
-        const sheetValue = await checkSpreadsheet(extractedCode || qrData);
+        // Buscar en Google Sheets
+        const searchResult = await checkSpreadsheet(extractedCode);
 
-        // 3. Mostrar resultado de búsqueda
-        if (sheetValue && sheetValue.found) {
+        // Mostrar resultado
+        if (searchResult && searchResult.found) {
           qrResult.innerHTML += `
-            <br><br>
             <div style="
               background: #4CAF50;
               color: white;
               padding: 10px;
               border-radius: 5px;
               margin: 10px 0;
+              font-weight: bold;
             ">
-              ✔ Registro encontrado
+              ✔ El código existe en el sistema
             </div>
           `;
-
-          // Redirigir después de 3 segundos (opcional)
-          setTimeout(() => {
-            window.location.href = youtubeUrl;
-          }, 3000);
         } else {
           qrResult.innerHTML += `
-            <br><br>
             <div style="
-              background: #F44336;
+              background: #f44336;
               color: white;
               padding: 10px;
               border-radius: 5px;
               margin: 10px 0;
+              font-weight: bold;
             ">
-              ✖ Código no registrado
+              ✖ El código NO existe en el sistema
             </div>
           `;
+        }
 
-          // Redirigir solo si es YouTube (sin espera)
-          if (isYouTubeUrl(youtubeUrl)) {
-            setTimeout(() => {
-              window.location.href = youtubeUrl;
-            }, 1500);
-          }
+        // Redirigir solo si es URL de YouTube y el código existe
+        if (isYoutubeUrl && searchResult && searchResult.found) {
+          setTimeout(() => {
+            window.location.href = `https://www.youtube.com/`;
+          }, 3000);
         }
 
         stopScanner();
@@ -409,10 +404,9 @@ function scanQRCode(video) {
   tick();
 }
 
-// Función de búsqueda optimizada
+// Función optimizada de búsqueda
 async function checkSpreadsheet(qrCode) {
   try {
-    const extractedNumber = qrCode.replace(/\D/g, '');
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Datos1!G2:G', // Solo columna G desde fila 2
@@ -421,9 +415,9 @@ async function checkSpreadsheet(qrCode) {
     const values = response.result.values;
     if (!values) return { found: false };
 
-    // Buscar en la columna G (ahora simplificado)
+    // Buscar el código exacto en la columna G
     for (const [cellValue] of values) {
-      if (cellValue && cellValue.replace(/\D/g, '') === extractedNumber) {
+      if (cellValue && cellValue.trim() === qrCode.trim()) {
         return { found: true };
       }
     }
