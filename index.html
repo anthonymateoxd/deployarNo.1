@@ -10,87 +10,123 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
     />
-    <link
-      rel="stylesheet"
-      href="style.css"
-    />
-    <script src="js/credenciales.js"></script>
-    <script
-      src="js/index.js"
-      defer
-    ></script>
-    <script
-      async
-      defer
-      src="https://apis.google.com/js/api.js"
-      id="gapi"
-    ></script>
-    <script
-      async
-      defer
-      src="https://accounts.google.com/gsi/client"
-      id="gis"
-    ></script>
-    <script
-      async
-      defer
-      src="js/sheets.js"
-    ></script>
-    <title>Document</title>
+    <title>Lector QR con Google Sheets</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      button {
+        padding: 8px 16px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      #qr-scanner-container {
+        margin: 20px 0;
+        text-align: center;
+      }
+      #qr-video {
+        border: 2px solid #ddd;
+        border-radius: 4px;
+      }
+      #qr-result {
+        padding: 10px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+        margin-top: 10px;
+      }
+    </style>
   </head>
   <body>
-    <p>Sheets API Quickstart</p>
+    <h1>Lector QR con Google Sheets</h1>
 
-    <!--Add buttons to initiate auth sequence and sign out-->
-    <button
-      id="authorize_button"
-      onclick="handleAuthClick()"
-    >
-      Authorize
-    </button>
-    <button
-      id="signout_button"
-      onclick="handleSignoutClick()"
-    >
-      Sign Out
-    </button>
+    <!-- Botones de autenticación -->
+    <div>
+      <button
+        id="authorize_button"
+        onclick="handleAuthClick()"
+      >
+        Authorize
+      </button>
+      <button
+        id="signout_button"
+        onclick="handleSignoutClick()"
+      >
+        Sign Out
+      </button>
+    </div>
 
+    <!-- Controles del escáner QR -->
+    <div>
+      <button id="start-scanner">Iniciar Escáner QR</button>
+    </div>
+
+    <div
+      id="qr-scanner-container"
+      style="display: none"
+    >
+      <video
+        id="qr-video"
+        width="100%"
+        style="max-width: 500px"
+      ></video>
+      <button
+        id="stop-scanner"
+        style="margin-top: 10px"
+      >
+        Detener Escáner
+      </button>
+      <div
+        id="qr-result"
+        style="margin-top: 10px"
+      ></div>
+    </div>
+
+    <!-- Resultados de Google Sheets -->
     <pre
       id="content"
       style="white-space: pre-wrap"
     ></pre>
 
-    <script type="text/javascript">
+    <!-- Scripts -->
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <script>
+      // Variables para Google API
       const CLIENT_ID =
         '124776303655-ciftdp9sqlkm5ir5hargvk1cf9hcte88.apps.googleusercontent.com';
       const API_KEY = 'AIzaSyDz4X52nWMUsWbjO-eyTFx6rNAg82pTb_A';
-
-      // Discovery doc URL for APIs used by the quickstart
       const DISCOVERY_DOC =
         'https://sheets.googleapis.com/$discovery/rest?version=v4';
-
-      // Authorization scopes required by the API; multiple scopes can be
-      // included, separated by spaces.
       const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 
       let tokenClient;
       let gapiInited = false;
       let gisInited = false;
 
-      document.getElementById('authorize_button').style.visibility = 'hidden';
-      document.getElementById('signout_button').style.visibility = 'hidden';
+      // Variables para el escáner QR
+      let scanner = null;
+      let scanningActive = false;
 
-      /**
-       * Callback after api.js is loaded.
-       */
+      document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('authorize_button').style.visibility = 'hidden';
+        document.getElementById('signout_button').style.visibility = 'hidden';
+
+        // Configurar listeners para el escáner QR
+        document
+          .getElementById('start-scanner')
+          .addEventListener('click', startScanner);
+        document
+          .getElementById('stop-scanner')
+          .addEventListener('click', stopScanner);
+      });
+
+      // Funciones de Google API
       function gapiLoaded() {
         gapi.load('client', initializeGapiClient);
       }
 
-      /**
-       * Callback after the API client is loaded. Loads the
-       * discovery doc to initialize the API.
-       */
       async function initializeGapiClient() {
         await gapi.client.init({
           apiKey: API_KEY,
@@ -100,22 +136,16 @@
         maybeEnableButtons();
       }
 
-      /**
-       * Callback after Google Identity Services are loaded.
-       */
       function gisLoaded() {
         tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: CLIENT_ID,
           scope: SCOPES,
-          callback: '', // defined later
+          callback: '',
         });
         gisInited = true;
         maybeEnableButtons();
       }
 
-      /**
-       * Enables user interaction after all libraries are loaded.
-       */
       function maybeEnableButtons() {
         if (gapiInited && gisInited) {
           document.getElementById('authorize_button').style.visibility =
@@ -123,9 +153,6 @@
         }
       }
 
-      /**
-       *  Sign in the user upon button click.
-       */
       function handleAuthClick() {
         tokenClient.callback = async resp => {
           if (resp.error !== undefined) {
@@ -138,18 +165,12 @@
         };
 
         if (gapi.client.getToken() === null) {
-          // Prompt the user to select a Google Account and ask for consent to share their data
-          // when establishing a new session.
           tokenClient.requestAccessToken({ prompt: 'consent' });
         } else {
-          // Skip display of account chooser and consent dialog for an existing session.
           tokenClient.requestAccessToken({ prompt: '' });
         }
       }
 
-      /**
-       *  Sign out the user upon button click.
-       */
       function handleSignoutClick() {
         const token = gapi.client.getToken();
         if (token !== null) {
@@ -161,52 +182,134 @@
         }
       }
 
-      /**
-       * Print the names and majors of students in a sample spreadsheet:
-       * https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
-       */
       async function listMajors() {
-        let response;
         try {
-          response = await gapi.client.sheets.spreadsheets.values.get({
+          const response = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0',
             range: 'Datos!A:C',
           });
-        } catch (err) {
-          console.error(err);
-          document.getElementById('content').innerText = err.message;
-          return;
-        }
-        const range = response.result;
-        if (!range || !range.values || range.values.length == 0) {
-          console.warn('No hay datos disponibles');
-          document.getElementById('content').innerText = 'No values found.';
-          return;
-        }
 
-        // Crear encabezados
-        let output = 'Full Name | Email | Tipo de Persona\n';
-        output += '------------------------------------\n';
-
-        // Procesar cada fila
-        range.values.forEach((row, index) => {
-          // Saltar la primera fila si son encabezados
-          if (
-            index === 0 &&
-            (row[0] === 'Full name' || row[0] === 'Full Name')
-          ) {
+          const range = response.result;
+          if (!range?.values?.length) {
+            document.getElementById('content').innerText =
+              'No se encontraron datos.';
             return;
           }
 
-          // Asegurarse de que hay datos en las 3 columnas
-          const fullName = row[0] || '';
-          const email = row[1] || '';
-          const tipoPersona = row[2] || '';
+          let output = 'Full Name | Email | Tipo de Persona\n';
+          output += '------------------------------------\n';
 
-          output += `${fullName} | ${email} | ${tipoPersona}\n`;
+          range.values.forEach((row, index) => {
+            if (
+              index === 0 &&
+              (row[0] === 'Full name' || row[0] === 'Full Name')
+            ) {
+              return;
+            }
+
+            const fullName = row[0] || '';
+            const email = row[1] || '';
+            const tipoPersona = row[2] || '';
+
+            output += `${fullName} | ${email} | ${tipoPersona}\n`;
+          });
+
+          document.getElementById('content').innerText = output;
+        } catch (err) {
+          console.error(err);
+          document.getElementById('content').innerText = err.message;
+        }
+      }
+
+      // Funciones del escáner QR
+      function startScanner() {
+        const scannerContainer = document.getElementById(
+          'qr-scanner-container'
+        );
+        const startScannerBtn = document.getElementById('start-scanner');
+        const qrResult = document.getElementById('qr-result');
+
+        scannerContainer.style.display = 'block';
+        startScannerBtn.style.display = 'none';
+        qrResult.innerHTML = '';
+
+        scanner = new Instascan.Scanner({
+          video: document.getElementById('qr-video'),
         });
 
-        document.getElementById('content').innerText = output;
+        scanner.addListener('scan', function (content) {
+          qrResult.innerHTML = `Código QR escaneado: <strong>${content}</strong>`;
+          searchInSheets(content);
+          stopScanner();
+        });
+
+        Instascan.Camera.getCameras()
+          .then(cameras => {
+            if (cameras.length > 0) {
+              scanningActive = true;
+              scanner.start(cameras[0]); // Usar cámara trasera por defecto
+            } else {
+              qrResult.innerHTML = 'No se encontraron cámaras disponibles';
+            }
+          })
+          .catch(e => {
+            console.error(e);
+            qrResult.innerHTML = 'Error al acceder a la cámara: ' + e.message;
+          });
+      }
+
+      function stopScanner() {
+        if (scanner && scanningActive) {
+          scanner.stop();
+          scanningActive = false;
+        }
+        document.getElementById('qr-scanner-container').style.display = 'none';
+        document.getElementById('start-scanner').style.display = 'block';
+      }
+
+      async function searchInSheets(qrContent) {
+        if (!gapi.client.getToken()) {
+          document.getElementById('qr-result').innerHTML +=
+            '<br>Debes autenticarte primero';
+          return;
+        }
+
+        try {
+          const response = await gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId: '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0',
+            range: 'Datos!A:C',
+          });
+
+          const range = response.result;
+          if (!range?.values?.length) {
+            document.getElementById('qr-result').innerHTML +=
+              '<br>No hay datos en la hoja';
+            return;
+          }
+
+          let found = false;
+          range.values.forEach((row, index) => {
+            if (index === 0) return;
+
+            if (row.some(cell => cell && cell.toString().includes(qrContent))) {
+              document.getElementById(
+                'qr-result'
+              ).innerHTML += `<br>Encontrado en fila ${index + 1}: ${row.join(
+                ' | '
+              )}`;
+              found = true;
+            }
+          });
+
+          if (!found) {
+            document.getElementById('qr-result').innerHTML +=
+              '<br>No se encontraron coincidencias';
+          }
+        } catch (err) {
+          console.error(err);
+          document.getElementById('qr-result').innerHTML +=
+            '<br>Error: ' + err.message;
+        }
       }
     </script>
     <script
