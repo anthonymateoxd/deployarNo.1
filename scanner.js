@@ -3,6 +3,8 @@ const CLIENT_ID =
   '124776303655-ciftdp9sqlkm5ir5hargvk1cf9hcte88.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyDz4X52nWMUsWbjO-eyTFx6rNAg82pTb_A';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const SPREADSHEET_ID = '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0';
+const RANGE = 'Datos1!G2';
 
 // Variables para el escáner QR
 let scannerActive = false;
@@ -12,7 +14,7 @@ let gapiInited = false;
 let gisInited = false;
 
 document.addEventListener('DOMContentLoaded', function () {
-  // Configurar listeners para el escáner QR
+  // Configurar listeners
   document
     .getElementById('start-scanner')
     .addEventListener('click', startScanner);
@@ -50,8 +52,7 @@ function loadGoogleAPI() {
     });
   };
   document.body.appendChild(script);
-
-  // GIS (Google Identity Services) ya está cargado con el script externo
+  //
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
@@ -59,6 +60,20 @@ function loadGoogleAPI() {
   });
   gisInited = true;
   maybeEnableAuth();
+}
+
+async function checkSpreadsheet() {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: RANGE,
+    });
+
+    return response.result.values ? response.result.values[0][0] : null;
+  } catch (err) {
+    console.error('Error al leer la hoja de cálculo:', err);
+    return null;
+  }
 }
 
 function maybeEnableAuth() {
@@ -78,7 +93,6 @@ function handleAuthClick() {
       'Autenticado correctamente';
     document.getElementById('auth-status').className = 'authenticated';
 
-    // Habilitar el escáner QR
     document.getElementById('start-scanner').disabled = false;
     document.getElementById('start-scanner').classList.remove('disabled');
   };
@@ -101,14 +115,12 @@ function handleSignoutClick() {
     document.getElementById('auth-status').textContent = 'No autenticado';
     document.getElementById('auth-status').className = 'not-authenticated';
 
-    // Deshabilitar el escáner QR
     document.getElementById('start-scanner').disabled = true;
     document.getElementById('start-scanner').classList.add('disabled');
     stopScanner();
   }
 }
 
-// Funciones del escáner QR
 async function startScanner() {
   if (!gapi.client.getToken()) {
     alert('Por favor, autentícate primero antes de escanear.');
@@ -155,7 +167,7 @@ function scanQRCode(video) {
   const context = canvas.getContext('2d');
   const qrResult = document.getElementById('qr-result');
 
-  function tick() {
+  async function tick() {
     if (!scannerActive) return;
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -169,14 +181,19 @@ function scanQRCode(video) {
       });
 
       if (code) {
+        const sheetValue = await checkSpreadsheet();
         qrResult.innerHTML = `Código QR escaneado: <strong>${code.data}</strong>`;
 
-        // Verificar si es una URL de YouTube y redirigir
-        if (isYouTubeUrl(code.data)) {
-          window.location.href = code.data;
+        if (sheetValue && code.data === sheetValue) {
+          qrResult.innerHTML +=
+            '<br><span style="color:green">Coincide con el valor en G2!</span>';
+          // Redirigir o realizar otra acción
+          if (isYouTubeUrl(code.data)) {
+            window.location.href = code.data;
+          }
         } else {
           qrResult.innerHTML +=
-            '<br><span style="color:red">No es una URL de YouTube válida</span>';
+            '<br><span style="color:red">NO coincide con el valor en G2</span>';
         }
 
         stopScanner();
