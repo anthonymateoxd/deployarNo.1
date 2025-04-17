@@ -328,7 +328,7 @@ function scanQRCode(video) {
   const context = canvas.getContext('2d');
   const qrResult = document.getElementById('qr-result');
 
-  // Función para mostrar cuadro emergente
+  // Función para mostrar cuadro emergente (se mantiene igual)
   function showAlertBox(message, isSuccess) {
     const alertBox = document.createElement('div');
     alertBox.style.position = 'fixed';
@@ -347,13 +347,13 @@ function scanQRCode(video) {
     alertBox.style.animation = 'fadeIn 0.5s';
 
     if (isSuccess) {
-      alertBox.style.backgroundColor = '#4CAF50'; // Verde para éxito
+      alertBox.style.backgroundColor = '#4CAF50';
       alertBox.innerHTML = `
         <div style="font-size: 24px; margin-bottom: 10px;">✓</div>
         <div>${message}</div>
       `;
     } else {
-      alertBox.style.backgroundColor = '#f44336'; // Rojo para error
+      alertBox.style.backgroundColor = '#f44336';
       alertBox.innerHTML = `
         <div style="font-size: 24px; margin-bottom: 10px;">✗</div>
         <div>${message}</div>
@@ -362,7 +362,6 @@ function scanQRCode(video) {
 
     document.body.appendChild(alertBox);
 
-    // Desaparecer después de 3 segundos
     setTimeout(() => {
       alertBox.style.animation = 'fadeOut 0.5s';
       setTimeout(() => {
@@ -370,20 +369,6 @@ function scanQRCode(video) {
       }, 500);
     }, 3000);
   }
-
-  // Añadir estilos de animación
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes fadeIn {
-      from { opacity: 0; top: 0; }
-      to { opacity: 1; top: 20px; }
-    }
-    @keyframes fadeOut {
-      from { opacity: 1; top: 20px; }
-      to { opacity: 0; top: 0; }
-    }
-  `;
-  document.head.appendChild(style);
 
   async function tick() {
     if (!scannerActive) return;
@@ -401,15 +386,13 @@ function scanQRCode(video) {
       if (code) {
         const qrData = code.data;
         let extractedCode = '';
-        let isYoutubeUrl = false;
 
-        // Extraer código si es QR de YouTube
+        // Extraer código (ya no necesitamos la variable isYoutubeUrl)
         if (qrData.includes('youtube.com/?data=')) {
           const urlParts = qrData.split('data=');
           extractedCode = urlParts[1];
-          isYoutubeUrl = true;
         } else {
-          extractedCode = qrData; // Si es un código directo
+          extractedCode = qrData;
         }
 
         qrResult.innerHTML = `Código escaneado: <strong>${extractedCode}</strong>`;
@@ -417,7 +400,7 @@ function scanQRCode(video) {
         // Buscar en Google Sheets
         const searchResult = await checkSpreadsheet(extractedCode);
 
-        // Mostrar resultado en página y como cuadro emergente
+        // Mostrar resultados
         if (searchResult && searchResult.found) {
           showAlertBox('EL CÓDIGO EXISTE', true);
           qrResult.innerHTML += `
@@ -433,26 +416,17 @@ function scanQRCode(video) {
             ">
               ✔ El código existe en el sistema
             </div>
+            <div style="
+              background: #2196F3;
+              color: white;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 10px 0;
+              text-align: center;
+            ">
+              Modo verificación: No se ha realizado redirección
+            </div>
           `;
-
-          // Redirigir solo si es URL de YouTube y el código existe
-          if (isYoutubeUrl) {
-            qrResult.innerHTML += `
-              <div style="
-                background: #2196F3;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                margin: 10px 0;
-                text-align: center;
-              ">
-                Redirigiendo en 3 segundos...
-              </div>
-            `;
-            setTimeout(() => {
-              window.location.href = qrData;
-            }, 3000);
-          }
         } else {
           showAlertBox('EL CÓDIGO NO EXISTE', false);
           qrResult.innerHTML += `
@@ -467,16 +441,6 @@ function scanQRCode(video) {
               text-align: center;
             ">
               ✖ El código NO existe en el sistema
-            </div>
-            <div style="
-              background: #ffeb3b;
-              color: #000;
-              padding: 10px;
-              border-radius: 5px;
-              margin: 10px 0;
-              text-align: center;
-            ">
-              No se realizará ninguna redirección
             </div>
           `;
         }
