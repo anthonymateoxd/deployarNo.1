@@ -180,7 +180,8 @@ function scanQRCode(video) {
         }
 
         // Verificar en Google Sheets
-        const sheetValue = await checkSpreadsheet();
+        const sheetValue = await checkSpreadsheet(extractedCode || qrData);
+
         qrResult.innerHTML = `Código QR escaneado: <strong>${
           extractedCode || qrData
         }</strong>`;
@@ -219,7 +220,7 @@ function scanQRCode(video) {
   tick();
 }
 
-// Modifica la función checkSpreadsheet para manejar múltiples valores
+// Función para verificar y mostrar datos de Google Sheets
 async function checkSpreadsheet(qrCode) {
   try {
     const response = await gapi.client.sheets.spreadsheets.values.get({
@@ -228,30 +229,58 @@ async function checkSpreadsheet(qrCode) {
     });
 
     const values = response.result.values;
+    const qrResult = document.getElementById('qr-result');
 
     if (!values || values.length === 0) {
       console.log('No se encontraron datos en la hoja.');
+      qrResult.innerHTML += '<br>No hay datos en la hoja de cálculo';
       return null;
     }
 
-    // Buscar el código QR en todas las filas
-    for (const row of values) {
-      if (row[6] === qrCode) {
-        // Asumiendo que el código está en la columna G (índice 6)
-        // Devuelve toda la fila encontrada
-        return {
-          found: true,
-          data: row,
-        };
+    // Mostrar todos los datos primero (para propósitos de visualización)
+    qrResult.innerHTML += '<br><br><strong>Datos en la hoja:</strong><br>';
+    qrResult.innerHTML += '<table border="1"><tr>';
+
+    // Encabezados (asumiendo que la primera fila tiene los títulos)
+    const headers = values[0];
+    headers.forEach(header => {
+      qrResult.innerHTML += `<th>${header}</th>`;
+    });
+    qrResult.innerHTML += '</tr>';
+
+    // Filas de datos
+    for (let i = 1; i < values.length; i++) {
+      qrResult.innerHTML += '<tr>';
+      values[i].forEach(cell => {
+        qrResult.innerHTML += `<td>${cell}</td>`;
+      });
+      qrResult.innerHTML += '</tr>';
+    }
+    qrResult.innerHTML += '</table>';
+
+    // Buscar el código QR específico (si se proporciona)
+    if (qrCode) {
+      for (const row of values) {
+        if (row[6] === qrCode) {
+          // Asumiendo columna G (índice 6)
+          return {
+            found: true,
+            data: row,
+          };
+        }
       }
+      return { found: false };
     }
 
-    return { found: false };
+    return values; // Devuelve todos los datos si no se busca un código específico
   } catch (err) {
     console.error('Error al leer la hoja de cálculo:', err);
+    document.getElementById('qr-result').innerHTML +=
+      '<br>Error al acceder a los datos: ' + err.message;
     return null;
   }
 }
+
 // Función para verificar URL de YouTube (sin cambios)
 function isYouTubeUrl(url) {
   try {
