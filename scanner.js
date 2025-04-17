@@ -110,24 +110,27 @@ function maybeEnableAuth() {
 // Función para mostrar los datos de la hoja de cálculo
 async function displaySheetData() {
   try {
-    // Crear contenedor si no existe
+    // Crear o seleccionar el contenedor
     let dataContainer = document.getElementById('sheet-data-container');
     if (!dataContainer) {
       dataContainer = document.createElement('div');
       dataContainer.id = 'sheet-data-container';
       dataContainer.style.margin = '20px 0';
       dataContainer.style.padding = '15px';
-      dataContainer.style.backgroundColor = '#f9f9f9';
-      dataContainer.style.borderRadius = '5px';
-      dataContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+      dataContainer.style.backgroundColor = '#f8f9fa';
+      dataContainer.style.borderRadius = '8px';
+      dataContainer.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
 
       const title = document.createElement('h2');
       title.textContent = 'Datos de la Hoja de Cálculo';
+      title.style.color = '#2c3e50';
+      title.style.marginBottom = '15px';
       dataContainer.appendChild(title);
 
       const loading = document.createElement('div');
       loading.id = 'sheet-data-loading';
       loading.textContent = 'Cargando datos...';
+      loading.style.color = '#7f8c8d';
       dataContainer.appendChild(loading);
 
       const table = document.createElement('table');
@@ -136,11 +139,13 @@ async function displaySheetData() {
       table.style.borderCollapse = 'collapse';
       table.style.marginTop = '10px';
       table.style.display = 'none';
+      table.style.fontFamily = 'Arial, sans-serif';
       dataContainer.appendChild(table);
 
-      // Insertar después del contenedor de autenticación
-      const authContainer = document.querySelector('div');
-      authContainer.insertAdjacentElement('afterend', dataContainer);
+      document.body.insertBefore(
+        dataContainer,
+        document.querySelector('script')
+      );
     }
 
     const loadingElement = document.getElementById('sheet-data-loading');
@@ -158,40 +163,71 @@ async function displaySheetData() {
 
     if (!values || values.length === 0) {
       loadingElement.textContent = 'No se encontraron datos en la hoja.';
+      loadingElement.style.color = '#e74c3c';
       return;
     }
 
-    // Construir la tabla
+    // Construir la tabla con nuevos estilos
     let tableHTML = '';
     const headers = values[0];
 
     // Encabezados
     tableHTML += '<tr>';
     headers.forEach(header => {
-      tableHTML += `<th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">${header}</th>`;
+      tableHTML += `
+        <th style="
+          background-color: #3498db;
+          color: white;
+          padding: 12px 8px;
+          text-align: left;
+          border: 1px solid #2980b9;
+          font-weight: bold;
+        ">${header}</th>
+      `;
     });
     tableHTML += '</tr>';
 
     // Filas de datos
     for (let i = 1; i < values.length; i++) {
-      tableHTML +=
-        '<tr style="background-color: ' +
-        (i % 2 === 0 ? '#f9f9f9' : 'white') +
-        '">';
+      const rowColor = i % 2 === 0 ? '#f2f2f2' : '#ffffff';
+      tableHTML += `
+        <tr style="background-color: ${rowColor};">
+      `;
+
       values[i].forEach(cell => {
-        tableHTML += `<td style="border: 1px solid #ddd; padding: 8px; text-align: left;">${cell}</td>`;
+        tableHTML += `
+          <td style="
+            padding: 10px 8px;
+            border: 1px solid #ddd;
+            color: #34495e;
+          ">${cell}</td>
+        `;
       });
+
       tableHTML += '</tr>';
     }
 
     tableElement.innerHTML = tableHTML;
     loadingElement.style.display = 'none';
     tableElement.style.display = 'table';
+
+    // Añadir hover effect
+    tableElement.querySelectorAll('tr:not(:first-child)').forEach(row => {
+      row.style.transition = 'background-color 0.2s ease';
+      row.addEventListener('mouseenter', () => {
+        row.style.backgroundColor = '#e3f2fd';
+      });
+      row.addEventListener('mouseleave', () => {
+        row.style.backgroundColor =
+          row.rowIndex % 2 === 0 ? '#f2f2f2' : '#ffffff';
+      });
+    });
   } catch (err) {
     console.error('Error al mostrar datos:', err);
     const loadingElement = document.getElementById('sheet-data-loading');
     if (loadingElement) {
       loadingElement.textContent = 'Error al cargar los datos: ' + err.message;
+      loadingElement.style.color = '#e74c3c';
     }
   }
 }
