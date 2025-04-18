@@ -323,52 +323,6 @@ function stopScanner() {
   document.getElementById('start-scanner').style.display = 'block';
 }
 
-// Primero, actualizamos la función checkSpreadsheet para que pueda eliminar el registro
-async function checkSpreadsheet(qrCode) {
-  try {
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: 'Datos1!A2:G', // Leemos más columnas para debug
-    });
-
-    const values = response.result.values;
-    if (!values || values.length === 0) {
-      console.log('No se encontraron datos en la hoja');
-      return { found: false };
-    }
-
-    // Debug: Mostrar todos los códigos encontrados
-    console.log(
-      'Códigos en la hoja:',
-      values.map(row => row[6] || '').join(', ')
-    );
-
-    // Buscar el código (comparación más flexible)
-    for (let i = 0; i < values.length; i++) {
-      const row = values[i];
-      const cellValue = row[6] ? row[6].toString().trim() : ''; // Columna G (índice 6)
-
-      if (cellValue === qrCode.trim()) {
-        console.log(`Código encontrado en fila ${i + 2}:`, cellValue);
-        return {
-          found: true,
-          row: i + 2, // +2 porque A2 es la primera fila de datos
-          fullRow: row, // Para debug
-        };
-      }
-    }
-
-    console.log(`Código "${qrCode}" no encontrado`);
-    return { found: false };
-  } catch (err) {
-    console.error('Error al buscar:', err);
-    return {
-      found: false,
-      error: err.message,
-    };
-  }
-}
-
 // Función para borrar la fila del código validado
 async function deleteValidatedRow(rowNumber) {
   try {
@@ -414,45 +368,28 @@ function scanQRCode(video) {
   const context = canvas.getContext('2d');
   const qrResult = document.getElementById('qr-result');
 
-  // Función para mostrar cuadro emergente (se mantiene igual)
-  function showAlertBox(message, isSuccess) {
-    const alertBox = document.createElement('div');
-    alertBox.style.position = 'fixed';
-    alertBox.style.top = '20px';
-    alertBox.style.left = '50%';
-    alertBox.style.transform = 'translateX(-50%)';
-    alertBox.style.padding = '20px';
-    alertBox.style.borderRadius = '8px';
-    alertBox.style.color = 'white';
-    alertBox.style.fontWeight = 'bold';
-    alertBox.style.fontSize = '18px';
-    alertBox.style.zIndex = '1000';
-    alertBox.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-    alertBox.style.textAlign = 'center';
-    alertBox.style.minWidth = '300px';
-    alertBox.style.animation = 'fadeIn 0.5s';
+  // Función para mostrar notificación
+  function showNotification(message, isSuccess) {
+    const notification = document.createElement('div');
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.left = '50%';
+    notification.style.transform = 'translateX(-50%)';
+    notification.style.padding = '15px 30px';
+    notification.style.borderRadius = '5px';
+    notification.style.backgroundColor = isSuccess ? '#4CAF50' : '#f44336';
+    notification.style.color = 'white';
+    notification.style.fontWeight = 'bold';
+    notification.style.zIndex = '1000';
+    notification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    notification.style.animation = 'fadeIn 0.3s';
+    notification.textContent = message;
 
-    if (isSuccess) {
-      alertBox.style.backgroundColor = '#4CAF50';
-      alertBox.innerHTML = `
-        <div style="font-size: 24px; margin-bottom: 10px;">✓</div>
-        <div>${message}</div>
-      `;
-    } else {
-      alertBox.style.backgroundColor = '#f44336';
-      alertBox.innerHTML = `
-        <div style="font-size: 24px; margin-bottom: 10px;">✗</div>
-        <div>${message}</div>
-      `;
-    }
-
-    document.body.appendChild(alertBox);
+    document.body.appendChild(notification);
 
     setTimeout(() => {
-      alertBox.style.animation = 'fadeOut 0.5s';
-      setTimeout(() => {
-        document.body.removeChild(alertBox);
-      }, 500);
+      notification.style.animation = 'fadeOut 0.3s';
+      setTimeout(() => notification.remove(), 300);
     }, 3000);
   }
 
@@ -473,60 +410,32 @@ function scanQRCode(video) {
         const qrData = code.data;
         let extractedCode = '';
 
-        // Extraer código (ya no necesitamos la variable isYoutubeUrl)
-        if (qrData.includes('youtube.com/?data=')) {
-          const urlParts = qrData.split('data=');
-          extractedCode = urlParts[1];
+        // Extraer solo los números del código QR
+        const numbersInQR = qrData.match(/\d+/g);
+        if (numbersInQR && numbersInQR.length > 0) {
+          extractedCode = numbersInQR[0]; // Tomamos el primer grupo de números
         } else {
-          extractedCode = qrData;
+          extractedCode = qrData; // Si no hay números, tomamos todo el contenido
         }
 
+        console.log('Código extraído:', extractedCode);
         qrResult.innerHTML = `Código escaneado: <strong>${extractedCode}</strong>`;
 
-        // Buscar en Google Sheets
-        const searchResult = await checkSpreadsheet(extractedCode);
+        // Verificar en Google Sheets
+        const exists = await checkInSpreadsheet(extractedCode);
 
-        // Mostrar resultados
-        if (searchResult && searchResult.found) {
-          showAlertBox('EL CÓDIGO EXISTE', true);
+        if (exists) {
+          showNotification('✔ EL CÓDIGO EXISTE', true);
           qrResult.innerHTML += `
-            <div style="
-              background: #4CAF50;
-              color: white;
-              padding: 15px;
-              border-radius: 5px;
-              margin: 15px 0;
-              font-weight: bold;
-              font-size: 1.1em;
-              text-align: center;
-            ">
-              ✔ El código existe en el sistema
-            </div>
-            <div style="
-              background: #2196F3;
-              color: white;
-              padding: 10px;
-              border-radius: 5px;
-              margin: 10px 0;
-              text-align: center;
-            ">
-              Modo verificación: No se ha realizado redirección
+            <div class="result-box success">
+              Código válido - Registrado en el sistema
             </div>
           `;
         } else {
-          showAlertBox('EL CÓDIGO NO EXISTE', false);
+          showNotification('✖ CÓDIGO NO ENCONTRADO', false);
           qrResult.innerHTML += `
-            <div style="
-              background: #f44336;
-              color: white;
-              padding: 15px;
-              border-radius: 5px;
-              margin: 15px 0;
-              font-weight: bold;
-              font-size: 1.1em;
-              text-align: center;
-            ">
-              ✖ El código NO existe en el sistema
+            <div class="result-box error">
+              Código no registrado - Acceso no autorizado
             </div>
           `;
         }
@@ -537,4 +446,26 @@ function scanQRCode(video) {
     requestAnimationFrame(tick);
   }
   tick();
+}
+
+async function checkInSpreadsheet(code) {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Datos1!G2:G', // Solo columna G
+      majorDimension: 'COLUMNS',
+    });
+
+    const values = response.result.values;
+    if (!values || values.length === 0) return false;
+
+    // Todos los valores de la columna G (convertidos a string)
+    const codesInSheet = values[0].map(item => item.toString().trim());
+
+    // Verificar si el código existe (comparación exacta)
+    return codesInSheet.includes(code.toString().trim());
+  } catch (error) {
+    console.error('Error al verificar:', error);
+    return false;
+  }
 }
