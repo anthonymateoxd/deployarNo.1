@@ -422,7 +422,7 @@ function scanQRCode(video) {
         qrResult.innerHTML = `Código escaneado: <strong>${extractedCode}</strong>`;
 
         // Verificar en Google Sheets
-        const exists = await checkInSpreadsheet(extractedCode);
+        const { exists, row } = await checkInSpreadsheet(extractedCode);
 
         if (exists) {
           showNotification('✔ EL CÓDIGO EXISTE', true);
@@ -431,6 +431,24 @@ function scanQRCode(video) {
               Código válido - Registrado en el sistema
             </div>
           `;
+
+          // Eliminar la fila del código validado
+          const deletionSuccess = await deleteValidatedRow(row);
+          if (deletionSuccess) {
+            showNotification('✔ Código eliminado de la base de datos', true);
+            qrResult.innerHTML += `
+              <div class="result-box success">
+                Código eliminado correctamente de la base de datos
+              </div>
+            `;
+          } else {
+            showNotification('✖ Error al eliminar el código', false);
+            qrResult.innerHTML += `
+              <div class="result-box error">
+                Error al eliminar el código de la base de datos
+              </div>
+            `;
+          }
         } else {
           showNotification('✖ CÓDIGO NO ENCONTRADO', false);
           qrResult.innerHTML += `
@@ -452,20 +470,23 @@ async function checkInSpreadsheet(code) {
   try {
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Validacion!C2:C',
+      range: 'Validacion!C2:C', // Asumiendo que los códigos están en la columna C
       majorDimension: 'COLUMNS',
     });
 
     const values = response.result.values;
-    if (!values || values.length === 0) return false;
+    if (!values || values.length === 0) return { exists: false, row: -1 };
 
-    // Todos los valores de la columna G (convertidos a string)
-    const codesInSheet = values[0].map(item => item.toString().trim());
+    // Buscar el código en la columna y devolver el número de fila (base 1)
+    for (let i = 0; i < values[0].length; i++) {
+      if (values[0][i].toString().trim() === code.toString().trim()) {
+        return { exists: true, row: i + 2 }; // +2 porque empieza en C2 (fila 2)
+      }
+    }
 
-    // Verificar si el código existe (comparación exacta)
-    return codesInSheet.includes(code.toString().trim());
+    return { exists: false, row: -1 };
   } catch (error) {
     console.error('Error al verificar:', error);
-    return false;
+    return { exists: false, row: -1 };
   }
 }
