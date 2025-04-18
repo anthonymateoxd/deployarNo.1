@@ -4,7 +4,7 @@ const CLIENT_ID =
 const API_KEY = 'AIzaSyDz4X52nWMUsWbjO-eyTFx6rNAg82pTb_A';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const SPREADSHEET_ID = '1a2cs6PGHtxlYL9c6DZJ5v0D5JPAMAONw9RbwmVCHOk0';
-const RANGE = 'Datos1!A2:G100';
+const RANGE = 'Validacion!A2:G1000';
 
 // Variables para el escáner QR
 let scannerActive = false;
