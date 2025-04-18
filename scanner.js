@@ -387,6 +387,7 @@ function scanQRCode(video) {
         const qrData = code.data;
         let extractedCode = '';
 
+        // Extraer código (ya no necesitamos la variable isYoutubeUrl)
         if (qrData.includes('youtube.com/?data=')) {
           const urlParts = qrData.split('data=');
           extractedCode = urlParts[1];
@@ -401,68 +402,47 @@ function scanQRCode(video) {
 
         // Mostrar resultados
         if (searchResult && searchResult.found) {
-          // Eliminar el código validado
-          const deletionSuccess = await deleteValidatedRow(searchResult.row);
-
-          if (deletionSuccess) {
-            showAlertBox('CÓDIGO VALIDADO Y ELIMINADO', true);
-            qrResult.innerHTML += `
-          <div style="
-            background: #4CAF50;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            font-weight: bold;
-            font-size: 1.1em;
-            text-align: center;
-          ">
-            ✔ Código validado y eliminado del sistema
-          </div>
-          <div style="
-            background: #2196F3;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: center;
-          ">
-            Este código no podrá ser usado nuevamente
-          </div>
-        `;
-          } else {
-            showAlertBox('CÓDIGO VALIDADO PERO NO ELIMINADO', false);
-            qrResult.innerHTML += `
-          <div style="
-            background: #FF9800;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            font-weight: bold;
-            font-size: 1.1em;
-            text-align: center;
-          ">
-            ✔ Código existe pero no se pudo eliminar (error del sistema)
-          </div>
-        `;
-          }
+          showAlertBox('EL CÓDIGO EXISTE', true);
+          qrResult.innerHTML += `
+            <div style="
+              background: #4CAF50;
+              color: white;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 15px 0;
+              font-weight: bold;
+              font-size: 1.1em;
+              text-align: center;
+            ">
+              ✔ El código existe en el sistema
+            </div>
+            <div style="
+              background: #2196F3;
+              color: white;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 10px 0;
+              text-align: center;
+            ">
+              Modo verificación: No se ha realizado redirección
+            </div>
+          `;
         } else {
           showAlertBox('EL CÓDIGO NO EXISTE', false);
           qrResult.innerHTML += `
-        <div style="
-          background: #f44336;
-          color: white;
-          padding: 15px;
-          border-radius: 5px;
-          margin: 15px 0;
-          font-weight: bold;
-          font-size: 1.1em;
-          text-align: center;
-        ">
-          ✖ El código NO existe en el sistema
-        </div>
-      `;
+            <div style="
+              background: #f44336;
+              color: white;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 15px 0;
+              font-weight: bold;
+              font-size: 1.1em;
+              text-align: center;
+            ">
+              ✖ El código NO existe en el sistema
+            </div>
+          `;
         }
 
         stopScanner();
