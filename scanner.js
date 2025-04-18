@@ -452,7 +452,7 @@ async function checkInSpreadsheet(code) {
   try {
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Validacion!G2:G', // Solo columna G
+      range: 'Validacion!C2:C',
       majorDimension: 'COLUMNS',
     });
 
