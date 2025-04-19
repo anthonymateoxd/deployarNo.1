@@ -323,33 +323,6 @@ function stopScanner() {
   document.getElementById('start-scanner').style.display = 'block';
 }
 
-// Función para borrar la fila del código validado
-// async function deleteValidatedRow(rowNumber) {
-//   try {
-//     await gapi.client.sheets.spreadsheets.batchUpdate({
-//       spreadsheetId: SPREADSHEET_ID,
-//       resource: {
-//         requests: [
-//           {
-//             deleteDimension: {
-//               range: {
-//                 sheetId: 0, // Asume que es la primera hoja
-//                 dimension: 'ROWS',
-//                 startIndex: rowNumber - 1, // Sheets API usa base 0
-//                 endIndex: rowNumber,
-//               },
-//             },
-//           },
-//         ],
-//       },
-//     });
-//     return true;
-//   } catch (err) {
-//     console.error('Error al borrar fila:', err);
-//     return false;
-//   }
-// }
-
 async function deleteValidatedRow(rowNumber) {
   try {
     // Primero obtener el sheetId correcto
@@ -474,20 +447,42 @@ function scanQRCode(video) {
             </div>
           `;
 
+          // Asegurar que existe la hoja Diploma
+          await ensureDiplomaSheet();
+
           // Eliminar la fila del código validado
           const deletionSuccess = await deleteValidatedRow(row);
           if (deletionSuccess) {
             showNotification('✔ Código eliminado de la base de datos', true);
             qrResult.innerHTML += `
-              <div class="result-box success">
-                Código eliminado correctamente de la base de datos
-              </div>
+            <div class="result-box success">
+            Código eliminado correctamente de la base de datos
+            </div>
             `;
           } else {
             showNotification('✖ Error al eliminar el código', false);
             qrResult.innerHTML += `
+            <div class="result-box error">
+            Error al eliminar el código de la base de datos
+            </div>
+            `;
+          }
+
+          // Escribir en hoja Diploma
+          const writeSuccess = await writeToDiplomaSheet(row);
+
+          if (writeSuccess) {
+            showNotification('✔ Datos guardados para diploma', true);
+            qrResult.innerHTML += `
+              <div class="result-box success">
+                Datos registrados para generación de diploma
+              </div>
+            `;
+          } else {
+            showNotification('✖ Error al guardar para diploma', false);
+            qrResult.innerHTML += `
               <div class="result-box error">
-                Error al eliminar el código de la base de datos
+                Error al registrar datos para diploma
               </div>
             `;
           }
@@ -530,5 +525,81 @@ async function checkInSpreadsheet(code) {
   } catch (error) {
     console.error('Error al verificar:', error);
     return { exists: false, row: -1 };
+  }
+}
+
+// Función para escribir los datos en la hoja Diploma
+async function writeToDiplomaSheet(rowNumber) {
+  try {
+    // 1. Obtener los datos del participante
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Validacion!A${rowNumber}:G${rowNumber}`,
+    });
+
+    const rowData = response.result.values[0];
+    const nombre = rowData[0]; // Columna A - Nombre
+    const correo = rowData[1]; // Columna B - Correo
+    const codigo = rowData[2]; // Columna C - Código
+
+    // 2. Escribir en la hoja Diploma
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Diploma!A:C',
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [[nombre, correo, codigo, new Date().toLocaleString()]],
+      },
+    });
+
+    return true;
+  } catch (err) {
+    console.error('Error al escribir en Diploma:', err);
+    return false;
+  }
+}
+
+// Función para asegurar que existe la hoja Diploma
+async function ensureDiplomaSheet() {
+  try {
+    const spreadsheet = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+    });
+
+    const hasDiplomaSheet = spreadsheet.result.sheets.some(
+      sheet => sheet.properties.title === 'Diploma'
+    );
+
+    if (!hasDiplomaSheet) {
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: 'Diploma',
+                  gridProperties: { rowCount: 1, columnCount: 4 },
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      // Escribir encabezados
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Diploma!A1:D1',
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: [['Nombre', 'Correo', 'Código', 'Fecha de Registro']],
+        },
+      });
+    }
+    return true;
+  } catch (err) {
+    console.error('Error al verificar hoja Diploma:', err);
+    return false;
   }
 }
