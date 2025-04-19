@@ -468,6 +468,7 @@ function scanQRCode(video) {
             `;
           }
 
+          await verifyDiplomaSheetStructure();
           // Escribir en hoja Diploma
           const writeSuccess = await writeToDiplomaSheet(row);
 
@@ -531,37 +532,50 @@ async function checkInSpreadsheet(code) {
 // Función para escribir los datos en la hoja Diploma
 async function writeToDiplomaSheet(rowNumber) {
   try {
-    // 1. Obtener los datos del participante de la fila específica
+    console.log(`Obteniendo datos de la fila ${rowNumber}...`);
+
+    // 1. Obtener los datos específicos (Nombre y Correo) de la fila validada
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Validacion!A${rowNumber}:B${rowNumber}`, // Solo columnas A (Nombre) y B (Correo)
+      range: `Validacion!A${rowNumber}:B${rowNumber}`, // Columnas A (Nombre) y B (Correo)
     });
 
-    // Verificar que existen datos
+    console.log('Respuesta de Google Sheets:', response);
+
     if (!response.result.values || response.result.values.length === 0) {
-      throw new Error('No se encontraron datos en la fila');
+      throw new Error('No se encontraron datos en la fila especificada');
     }
 
     const rowData = response.result.values[0];
+    const nombre = rowData[0] ? rowData[0].trim() : 'Sin nombre';
+    const correo = rowData[1] ? rowData[1].trim() : 'Sin correo';
 
-    // Extraer nombre y correo
-    const nombre = rowData[0] || ''; // Columna A (Nombre)
-    const correo = rowData[1] || ''; // Columna B (Correo)
-    const codigo = await getCodeFromRow(rowNumber); // Obtener el código de la columna C
+    console.log(`Datos a escribir - Nombre: ${nombre}, Correo: ${correo}`);
 
-    // 2. Escribir en Diploma (solo nombre y correo)
-    await gapi.client.sheets.spreadsheets.values.append({
+    // 2. Preparar los datos para escribir
+    const valuesToWrite = [
+      [nombre, correo, new Date().toLocaleString()], // Formato: Nombre, Correo, Fecha
+    ];
+
+    console.log('Datos preparados:', valuesToWrite);
+
+    // 3. Escribir en la hoja Diploma
+    const writeResponse = await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Diploma!A:C', // Columnas A (Nombre), B (Correo), C (Código)
-      valueInputOption: 'USER_ENTERED',
+      range: 'Diploma!A1', // Escribir desde la primera fila disponible
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
       resource: {
-        values: [[nombre, correo, codigo, new Date().toLocaleString()]],
+        values: valuesToWrite,
       },
     });
 
+    console.log('Escritura exitosa:', writeResponse);
     return true;
   } catch (err) {
-    console.error('Error al escribir en Diploma:', err);
+    console.error('Error detallado al escribir en Diploma:', err);
+    console.error('Mensaje de error:', err.message);
+    console.error('Stack trace:', err.stack);
     throw err;
   }
 }
@@ -625,6 +639,36 @@ async function ensureDiplomaSheet() {
     return true;
   } catch (err) {
     console.error('Error al verificar hoja Diploma:', err);
+    return false;
+  }
+}
+
+async function verifyDiplomaSheetStructure() {
+  try {
+    // Verificar si la hoja existe
+    await ensureDiplomaSheet();
+
+    // Verificar encabezados
+    const headersResponse = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Diploma!A1:C1',
+    });
+
+    if (!headersResponse.result.values) {
+      // Si no hay encabezados, crearlos
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Diploma!A1:C1',
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: [['Nombre', 'Correo', 'Fecha de Registro']],
+        },
+      });
+      console.log('Encabezados creados exitosamente');
+    }
+    return true;
+  } catch (err) {
+    console.error('Error al verificar estructura:', err);
     return false;
   }
 }
