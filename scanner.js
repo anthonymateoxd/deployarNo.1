@@ -428,9 +428,9 @@ function scanQRCode(video) {
         // Extraer solo los números del código QR
         const numbersInQR = qrData.match(/\d+/g);
         if (numbersInQR && numbersInQR.length > 0) {
-          extractedCode = numbersInQR[0]; // Tomamos el primer grupo de números
+          extractedCode = numbersInQR[0];
         } else {
-          extractedCode = qrData; // Si no hay números, tomamos todo el contenido
+          extractedCode = qrData;
         }
 
         console.log('Código extraído:', extractedCode);
@@ -447,43 +447,25 @@ function scanQRCode(video) {
             </div>
           `;
 
-          // Asegurar que existe la hoja Diploma
+          // 1. Asegurar que existe la hoja Diploma con estructura correcta
           await ensureDiplomaSheet();
-
-          // Eliminar la fila del código validado
-          const deletionSuccess = await deleteValidatedRow(row);
-          if (deletionSuccess) {
-            showNotification('✔ Código eliminado de la base de datos', true);
-            qrResult.innerHTML += `
-            <div class="result-box success">
-            Código eliminado correctamente de la base de datos
-            </div>
-            `;
-          } else {
-            showNotification('✖ Error al eliminar el código', false);
-            qrResult.innerHTML += `
-            <div class="result-box error">
-            Error al eliminar el código de la base de datos
-            </div>
-            `;
-          }
-
           await verifyDiplomaSheetStructure();
-          // Escribir en hoja Diploma
-          const writeSuccess = await writeToDiplomaSheet(row);
 
-          if (writeSuccess) {
-            showNotification('✔ Datos guardados para diploma', true);
+          // 2. Procesar el código validado (esto incluye escribir en Diploma y luego eliminar)
+          const processSuccess = await processValidatedCode(row);
+
+          if (processSuccess) {
+            showNotification('✔ Proceso completado correctamente', true);
             qrResult.innerHTML += `
               <div class="result-box success">
-                Datos registrados para generación de diploma
+                Datos registrados en Diploma y eliminados de Validación
               </div>
             `;
           } else {
-            showNotification('✖ Error al guardar para diploma', false);
+            showNotification('✖ Error en el proceso', false);
             qrResult.innerHTML += `
               <div class="result-box error">
-                Error al registrar datos para diploma
+                Error en el proceso de validación
               </div>
             `;
           }
@@ -529,54 +511,26 @@ async function checkInSpreadsheet(code) {
   }
 }
 
-// Función para escribir los datos en la hoja Diploma
-async function writeToDiplomaSheet(rowNumber) {
+// Función mejorada para escribir en Diploma
+async function writeToDiplomaSheet(nombre, correo, codigo, fecha) {
   try {
-    console.log(`Obteniendo datos de la fila ${rowNumber}...`);
+    // Verificar/crear hoja Diploma si no existe
+    await ensureDiplomaSheet();
 
-    // 1. Obtener los datos específicos (Nombre y Correo) de la fila validada
-    const response = await gapi.client.sheets.spreadsheets.values.get({
+    const result = await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Validacion!A${rowNumber}:B${rowNumber}`, // Columnas A (Nombre) y B (Correo)
-    });
-
-    console.log('Respuesta de Google Sheets:', response);
-
-    if (!response.result.values || response.result.values.length === 0) {
-      throw new Error('No se encontraron datos en la fila especificada');
-    }
-
-    const rowData = response.result.values[0];
-    const nombre = rowData[0] ? rowData[0].trim() : 'Sin nombre';
-    const correo = rowData[1] ? rowData[1].trim() : 'Sin correo';
-
-    console.log(`Datos a escribir - Nombre: ${nombre}, Correo: ${correo}`);
-
-    // 2. Preparar los datos para escribir
-    const valuesToWrite = [
-      [nombre, correo, new Date().toLocaleString()], // Formato: Nombre, Correo, Fecha
-    ];
-
-    console.log('Datos preparados:', valuesToWrite);
-
-    // 3. Escribir en la hoja Diploma
-    const writeResponse = await gapi.client.sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: 'Diploma!A1', // Escribir desde la primera fila disponible
-      valueInputOption: 'RAW',
-      insertDataOption: 'INSERT_ROWS',
+      range: 'Diploma!A:D',
+      valueInputOption: 'USER_ENTERED',
       resource: {
-        values: valuesToWrite,
+        values: [[nombre, correo, codigo, fecha]],
       },
     });
 
-    console.log('Escritura exitosa:', writeResponse);
+    console.log('Escritura exitosa en Diploma:', result);
     return true;
   } catch (err) {
-    console.error('Error detallado al escribir en Diploma:', err);
-    console.error('Mensaje de error:', err.message);
-    console.error('Stack trace:', err.stack);
-    throw err;
+    console.error('Error al escribir en Diploma:', err);
+    throw err; // Relanzamos el error para manejarlo arriba
   }
 }
 
@@ -669,6 +623,48 @@ async function verifyDiplomaSheetStructure() {
     return true;
   } catch (err) {
     console.error('Error al verificar estructura:', err);
+    return false;
+  }
+}
+
+async function processValidatedCode(rowNumber) {
+  try {
+    // 1. PRIMERO: Obtener los datos necesarios
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Validacion!A${rowNumber}:C${rowNumber}`, // A: Nombre, B: Correo, C: Código
+    });
+
+    if (!response.result.values || response.result.values.length === 0) {
+      throw new Error('No se encontraron datos en la fila');
+    }
+
+    const [nombre, correo, codigo] = response.result.values[0];
+    const fecha = new Date().toLocaleString();
+
+    // 2. SEGUNDO: Escribir en Diploma (antes de eliminar)
+    const writeSuccess = await writeToDiplomaSheet(
+      nombre,
+      correo,
+      codigo,
+      fecha
+    );
+
+    if (!writeSuccess) {
+      throw new Error('Falló la escritura en Diploma');
+    }
+
+    // 3. TERCERO: Solo si se escribió correctamente, eliminar de Validacion
+    const deleteSuccess = await deleteValidatedRow(rowNumber);
+
+    if (!deleteSuccess) {
+      throw new Error('Falló la eliminación en Validacion');
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error en el proceso completo:', err);
+    alert(`Error: ${err.message}`);
     return false;
   }
 }
