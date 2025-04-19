@@ -537,25 +537,35 @@ async function writeToDiplomaSheet(rowNumber) {
       range: `Validacion!A${rowNumber}:G${rowNumber}`,
     });
 
-    const rowData = response.result.values[0];
-    const nombre = rowData[0]; // Columna A - Nombre
-    const correo = rowData[1]; // Columna B - Correo
-    const codigo = rowData[2]; // Columna C - Código
+    // Verificar que existen datos
+    if (!response.result.values || response.result.values.length === 0) {
+      throw new Error('No se encontraron datos en la fila');
+    }
 
-    // 2. Escribir en la hoja Diploma
+    const rowData = response.result.values[0];
+
+    // Verificar que las columnas existen
+    if (rowData.length < 2) {
+      throw new Error('La fila no contiene suficientes columnas');
+    }
+
+    const nombre = rowData[0]; // Columna A
+    const correo = rowData[1]; // Columna B
+
+    // 2. Escribir en Diploma
     await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Diploma!A:C',
+      range: 'Diploma!A:B', // Solo nombre y correo
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [[nombre, correo, codigo, new Date().toLocaleString()]],
+        values: [[nombre, correo, new Date().toLocaleString()]],
       },
     });
 
     return true;
   } catch (err) {
     console.error('Error al escribir en Diploma:', err);
-    return false;
+    throw err; // Re-lanzamos el error para manejarlo arriba
   }
 }
 
