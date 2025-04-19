@@ -531,10 +531,10 @@ async function checkInSpreadsheet(code) {
 // Función para escribir los datos en la hoja Diploma
 async function writeToDiplomaSheet(rowNumber) {
   try {
-    // 1. Obtener los datos del participante
+    // 1. Obtener los datos del participante de la fila específica
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Validacion!A${rowNumber}:G${rowNumber}`,
+      range: `Validacion!A${rowNumber}:B${rowNumber}`, // Solo columnas A (Nombre) y B (Correo)
     });
 
     // Verificar que existen datos
@@ -544,28 +544,43 @@ async function writeToDiplomaSheet(rowNumber) {
 
     const rowData = response.result.values[0];
 
-    // Verificar que las columnas existen
-    if (rowData.length < 2) {
-      throw new Error('La fila no contiene suficientes columnas');
-    }
+    // Extraer nombre y correo
+    const nombre = rowData[0] || ''; // Columna A (Nombre)
+    const correo = rowData[1] || ''; // Columna B (Correo)
+    const codigo = await getCodeFromRow(rowNumber); // Obtener el código de la columna C
 
-    const nombre = rowData[0]; // Columna A
-    const correo = rowData[1]; // Columna B
-
-    // 2. Escribir en Diploma
+    // 2. Escribir en Diploma (solo nombre y correo)
     await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Diploma!A:B', // Solo nombre y correo
+      range: 'Diploma!A:C', // Columnas A (Nombre), B (Correo), C (Código)
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [[nombre, correo, new Date().toLocaleString()]],
+        values: [[nombre, correo, codigo, new Date().toLocaleString()]],
       },
     });
 
     return true;
   } catch (err) {
     console.error('Error al escribir en Diploma:', err);
-    throw err; // Re-lanzamos el error para manejarlo arriba
+    throw err;
+  }
+}
+
+// Función auxiliar para obtener el código de la fila
+async function getCodeFromRow(rowNumber) {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Validacion!C${rowNumber}:C${rowNumber}`, // Columna C (Código)
+    });
+
+    if (response.result.values && response.result.values.length > 0) {
+      return response.result.values[0][0] || '';
+    }
+    return '';
+  } catch (err) {
+    console.error('Error al obtener código:', err);
+    return '';
   }
 }
 
