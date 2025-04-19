@@ -324,8 +324,50 @@ function stopScanner() {
 }
 
 // Función para borrar la fila del código validado
+// async function deleteValidatedRow(rowNumber) {
+//   try {
+//     await gapi.client.sheets.spreadsheets.batchUpdate({
+//       spreadsheetId: SPREADSHEET_ID,
+//       resource: {
+//         requests: [
+//           {
+//             deleteDimension: {
+//               range: {
+//                 sheetId: 0, // Asume que es la primera hoja
+//                 dimension: 'ROWS',
+//                 startIndex: rowNumber - 1, // Sheets API usa base 0
+//                 endIndex: rowNumber,
+//               },
+//             },
+//           },
+//         ],
+//       },
+//     });
+//     return true;
+//   } catch (err) {
+//     console.error('Error al borrar fila:', err);
+//     return false;
+//   }
+// }
+
 async function deleteValidatedRow(rowNumber) {
   try {
+    // Primero obtener el sheetId correcto
+    const spreadsheet = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+    });
+
+    const sheet = spreadsheet.result.sheets.find(
+      s => s.properties.title === 'Validacion'
+    );
+
+    if (!sheet) {
+      console.error('No se encontró la hoja "Validacion"');
+      return false;
+    }
+
+    const sheetId = sheet.properties.sheetId;
+
     await gapi.client.sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
@@ -333,9 +375,9 @@ async function deleteValidatedRow(rowNumber) {
           {
             deleteDimension: {
               range: {
-                sheetId: 0, // Asume que es la primera hoja
+                sheetId: sheetId, // Usar el ID correcto
                 dimension: 'ROWS',
-                startIndex: rowNumber - 1, // Sheets API usa base 0
+                startIndex: rowNumber - 1, // Ajustar índice base 0
                 endIndex: rowNumber,
               },
             },
